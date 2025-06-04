@@ -31,8 +31,8 @@ type MapPoint = {
 };
 
 let refPoints: RefPoint[] = [
-    {imgX: 142, imgY: 178, mapX: -2466, mapY: 2331},
-    {imgX: 1451, imgY: 1454, mapX: 2443, mapY: -2450}
+    {imgX: 546, imgY: 684, mapX: -2467, mapY: 2331},
+    {imgX: 5448, imgY: 5470, mapX: 2323, mapY: -2339}
 ];
 
 let points: Node[] = [];
