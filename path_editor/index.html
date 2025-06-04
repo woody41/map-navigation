@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>GPS Editor with Zoom, Pan, Reference Points & JSON Output</title>
+        <style>
+            body {
+                font-family: sans-serif;
+            }
+            #canvas {
+                border: 1px solid #ccc;
+                cursor: crosshair;
+            }
+            #canvas:active {
+                cursor: grabbing;
+            }
+            #refPointsEditor {
+                margin-top: 10px;
+                font-size: 14px;
+            }
+            #refPointsEditor input {
+                width: 60px;
+                margin: 3px;
+            }
+            #jsonOutput {
+                margin-top: 20px;
+                padding: 10px;
+                border: 1px solid #ddd;
+                background: #f9f9f9;
+                font-family: monospace;
+                white-space: pre;
+                overflow-x: auto;
+            }
+        </style>
+    </head>
+    <body>
+
+        <h2>GPS Editor</h2>
+        <input type="file" id="fileInput" accept="image/*" />
+        <p>Click to add points (transformed to map coords). Scroll to zoom, drag to move.</p>
+
+        <canvas id="canvas" width="1500" height="700"></canvas>
+
+        <div id="refPointsEditor">
+            <h3>Reference Points</h3>
+            <div id="pointsForm"></div>
+            <button id="updateBtn">Update Reference Points</button>
+        </div>
+
+        <h3>Live JSON Output</h3>
+        <textarea id="jsonOutput" rows="10" style="width: 100%; font-family: monospace;"></textarea>
+        <script type="module" src="/src/main.ts"></script>
+
+    </body>
+</html>

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPS Node & Edge Editor</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    #controls { padding: 10px; background: #333; color: #fff; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    canvas { display: block; background: #222; cursor: crosshair; }
+    #upload, input[type="number"] { margin-right: 10px; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <input type="file" id="upload" accept="image/*" />
+    <label>Offset X: <input type="number" id="offsetX" value="0" style="width: 60px;" /></label>
+    <label>Offset Y: <input type="number" id="offsetY" value="0" style="width: 60px;" /></label>
+    <button onclick="toggleBezier()">Toggle Bezier</button>
+    <button onclick="exportJSON()">Export JSON</button>
+    <span style="margin-left:20px">Left Click: Add Node, Right Click: Connect Nodes. Shift+Click to add/edit curve points. Drag yellow dots to edit curves. Ctrl+Click to add intermediate control points.</span>
+  </div>
+  <canvas id="mapCanvas"></canvas>
+  <script>
+    const canvas = document.getElementById('mapCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight - 40;
+
+    // Classes
+    class Node {
+      constructor(id, x, y) {
+        this.id = id;
+        this.x = x;
+        this.y = y;
+      }
+      draw(ctx, offset) {
+        ctx.fillStyle = '#f00';
+        ctx.beginPath();
+        ctx.arc(this.x - offset.x, this.y - offset.y, 5, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+      toJSON() {
+        return { id: this.id, x: this.x, y: this.y };
+      }
+    }
+
+    class Edge {
+      constructor(from, to, ctrls = [], bezier = true) {
+        this.from = from; // node id string
+        this.to = to;     // node id string
+        this.ctrls = ctrls; // array of control points {x, y}
+        this.bezier = bezier;
+      }
+      draw(ctx, nodes, offset, showControlPoints) {
+        const fromNode = nodes.find(n => n.id === this.from);
+        const toNode = nodes.find(n => n.id === this.to);
+        if (!fromNode || !toNode) return;
+
+        ctx.strokeStyle = '#0ff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(fromNode.x - offset.x, fromNode.y - offset.y);
+
+        if (this.bezier && this.ctrls.length > 0) {
+          if (this.ctrls.length === 1) {
+            ctx.quadraticCurveTo(
+              this.ctrls[0].x - offset.x,
+              this.ctrls[0].y - offset.y,
+              toNode.x - offset.x,
+              toNode.y - offset.y
+            );
+          } else if (this.ctrls.length === 2) {
+            ctx.bezierCurveTo(
+              this.ctrls[0].x - offset.x,
+              this.ctrls[0].y - offset.y,
+              this.ctrls[1].x - offset.x,
+              this.ctrls[1].y - offset.y,
+              toNode.x - offset.x,
+              toNode.y - offset.y
+            );
+          } else {
+            let pts = [fromNode, ...this.ctrls, toNode];
+            for (let i = 0; i < pts.length - 1; i++) {
+              ctx.lineTo(pts[i + 1].x - offset.x, pts[i + 1].y - offset.y);
+            }
+          }
+        } else {
+          ctx.lineTo(toNode.x - offset.x, toNode.y - offset.y);
+        }
+        ctx.stroke();
+
+        if (showControlPoints && this.ctrls) {
+          this.ctrls.forEach(p => {
+            ctx.fillStyle = 'yellow';
+            ctx.beginPath();
+            ctx.arc(p.x - offset.x, p.y - offset.y, 5, 0, 2 * Math.PI);
+            ctx.fill();
+          });
+        }
+      }
+      toJSON() {
+        return {
+          from: this.from,
+          to: this.to,
+          bezier: this.bezier,
+          ctrls: this.ctrls.map(p => ({ x: p.x, y: p.y }))
+        };
+      }
+    }
+
+    let bgImage = null;
+    let nodes = [];
+    let edges = [];
+    let selectedNode = null;
+    let useBezier = true;
+    let editingEdge = null;
+    let draggingCtrl = null;
+    let showControlPoints = false;
+
+    function getOffset() {
+      return {
+        x: parseFloat(document.getElementById('offsetX').value) || 0,
+        y: parseFloat(document.getElementById('offsetY').value) || 0
+      };
+    }
+
+    document.getElementById('upload').addEventListener('change', (e) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        bgImage = new Image();
+        bgImage.src = reader.result;
+        bgImage.onload = draw;
+      };
+      reader.readAsDataURL(e.target.files[0]);
+    });
+
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const offset = getOffset();
+
+      if (e.shiftKey && editingEdge) {
+        const px = x + offset.x;
+        const py = y + offset.y;
+
+        for (let i = 0; i < editingEdge.ctrls.length; i++) {
+          const ctrl = editingEdge.ctrls[i];
+          if (Math.hypot(ctrl.x - px, ctrl.y - py) < 6) {
+            editingEdge.ctrls.splice(i, 1);
+            draw();
+            return;
+          }
+        }
+
+        editingEdge.ctrls.push({ x: px, y: py });
+        showControlPoints = true;
+        draw();
+        return;
+      }
+
+      if (e.ctrlKey && editingEdge) {
+        const insertIndex = findClosestSegmentIndex(editingEdge.ctrls, { x: x + offset.x, y: y + offset.y });
+        editingEdge.ctrls.splice(insertIndex + 1, 0, { x: x + offset.x, y: y + offset.y });
+        showControlPoints = true;
+        draw();
+        return;
+      }
+
+      const clickedEdge = findEdgeAt(x, y);
+      if (clickedEdge) {
+        editingEdge = clickedEdge;
+        showControlPoints = true;
+        draw();
+        return;
+      }
+
+      // Create Node instance instead of plain object
+      const newNode = new Node('n' + nodes.length, x + offset.x, y + offset.y);
+      nodes.push(newNode);
+      draw();
+    });
+
+    function findEdgeAt(x, y) {
+      const offset = getOffset();
+      for (let edge of edges) {
+        for (let i = 0; i < edge.ctrls.length; i++) {
+          const ctrl = edge.ctrls[i];
+          if (Math.hypot((ctrl.x - offset.x) - x, (ctrl.y - offset.y) - y) < 6) {
+            return edge;
+          }
+        }
+      }
+      return null;
+    }
+
+    function findClosestSegmentIndex(ctrls, point) {
+      let minDist = Infinity;
+      let index = 0;
+      for (let i = 0; i < ctrls.length - 1; i++) {
+        const a = ctrls[i];
+        const b = ctrls[i + 1];
+        const midX = (a.x + b.x) / 2;
+        const midY = (a.y + b.y) / 2;
+        const dist = Math.hypot(midX - point.x, midY - point.y);
+        if (dist < minDist) {
+          minDist = dist;
+          index = i;
+        }
+      }
+      return index;
+    }
+
+    canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const offset = getOffset();
+
+      const node = findNodeAt(x + offset.x, y + offset.y);
+      if (!node) return;
+
+      if (!selectedNode) {
+        selectedNode = node;
+      } else {
+        if (selectedNode !== node) {
+          const ctrlX = (selectedNode.x + node.x) / 2;
+          const ctrlY = (selectedNode.y + node.y) / 2 - 50;
+          const edge = new Edge(selectedNode.id, node.id, [{ x: ctrlX, y: ctrlY }], useBezier);
+          edges.push(edge);
+          editingEdge = edge;
+          showControlPoints = true;
+        }
+        selectedNode = null;
+      }
+      draw();
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const offset = getOffset();
+
+      for (let edge of edges) {
+        for (let i = 0; i < edge.ctrls.length; i++) {
+          const ctrl = edge.ctrls[i];
+          if (Math.hypot((ctrl.x - offset.x) - x, (ctrl.y - offset.y) - y) < 6) {
+            draggingCtrl = { edge, index: i };
+            showControlPoints = true;
+            return;
+          }
+        }
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!draggingCtrl) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const offset = getOffset();
+
+      draggingCtrl.edge.ctrls[draggingCtrl.index].x = x + offset.x;
+      draggingCtrl.edge.ctrls[draggingCtrl.index].y = y + offset.y;
+      draw();
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      draggingCtrl = null;
+    });
+
+    function toggleBezier() {
+      useBezier = !useBezier;
+      draw();
+    }
+
+    function findNodeAt(x, y) {
+      return nodes.find(n => Math.hypot(n.x - x, n.y - y) < 10);
+    }
+
+    function draw() {
+      const offset = getOffset();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (bgImage) ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+
+      edges.forEach(e => e.draw(ctx, nodes, offset, showControlPoints));
+      nodes.forEach(n => n.draw(ctx, offset));
+    }
+
+    function exportJSON() {
+      const data = {
+        nodes: nodes.map(n => n.toJSON()),
+        edges: edges.map(e => e.toJSON())
+      };
+      const json = JSON.stringify(data, null, 2);
+      navigator.clipboard.writeText(json).then(() => {
+        alert('Exported JSON copied to clipboard!');
+      });
+    }
+
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight - 40;
+      draw();
+    });
+
+    draw();
+  </script>
+</body>
+</html>

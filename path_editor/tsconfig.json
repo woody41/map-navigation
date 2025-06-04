@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES6",
+    // Output modern JavaScript
+    "module": "ESNext",
+    // Use ES modules
+    "outDir": "./dist",
+    // Output compiled JS here
+    "rootDir": "./src",
+    // Your TS source code goes here
+    "strict": true,
+    // Enable all strict type-checking
+    "esModuleInterop": true,
+    // Allow default imports from non-ESM modules
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
