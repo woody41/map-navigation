@@ -6,3 +6,19 @@ export function generateUUID(): string {
         return v.toString(16);
     });
 }
+
+export function resizeCanvasToDisplaySize(canvas: HTMLCanvasElement) {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // 70% of viewport width and 100% of viewport height
+    const targetWidth = Math.floor(vw * 0.7);
+    const targetHeight = vh;
+
+    canvas.style.width = `${targetWidth}px`;
+    canvas.style.height = `${targetHeight}px`;
+
+    // Set actual drawing resolution
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+}

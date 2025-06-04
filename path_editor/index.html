@@ -1,53 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <title>GPS Editor with Zoom, Pan, Reference Points & JSON Output</title>
-        <style>
-            body {
-                font-family: sans-serif;
-            }
-            #canvas {
-                border: 1px solid #ccc;
-                cursor: crosshair;
-            }
-            #refPointsEditor {
-                margin-top: 10px;
-                font-size: 14px;
-            }
-            #refPointsEditor input {
-                width: 60px;
-                margin: 3px;
-            }
-            #jsonOutput {
-                margin-top: 20px;
-                padding: 10px;
-                border: 1px solid #ddd;
-                background: #f9f9f9;
-                font-family: monospace;
-                white-space: pre;
-                overflow-x: auto;
-            }
-        </style>
-    </head>
-    <body>
+<head>
+    <meta charset="UTF-8" />
+    <title>GPS Editor</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-        <h2>GPS Editor</h2>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            border-right: 1px solid #CCC;
+            cursor: crosshair;
+            background-color: #fff;
+        }
+
+        #sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .section {
+            background: #f7f7f7;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+        }
+
+        .section h3 {
+            margin-top: 0;
+        }
+
+        #pointsForm input {
+            width: 60px;
+            margin: 3px;
+        }
+
+        #jsonOutput {
+            width: 100%;
+            height: 200px;
+            resize: vertical;
+            font-family: monospace;
+            background: #fafafa;
+            border: 1px solid #ccc;
+            padding: 10px;
+            white-space: pre;
+            overflow: auto;
+        }
+
+        button, input[type="file"] {
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div><strong>GPS Editor</strong></div>
+    <div>
         <input type="file" id="fileInput" accept="image/*" />
-        <p>CTRL + Click = New Node</p>
-        <p>SHIFT + Click = Node move</p>
+    </div>
+</header>
 
-        <canvas id="canvas" width="1500" height="700"></canvas>
+<main>
+    <canvas id="canvas" width="100px" height="100px"></canvas>
 
-        <div id="refPointsEditor">
+    <div id="sidebar">
+        <div class="section">
             <h3>Reference Points</h3>
             <div id="pointsForm"></div>
             <button id="updateBtn">Update Reference Points</button>
         </div>
 
-        <h3>Live JSON Output</h3>
-        <textarea id="jsonOutput" rows="10" style="width: 100%; font-family: monospace;"></textarea>
-        <script type="module" src="/src/main.ts"></script>
+        <div class="section">
+            <h3>Nodes & Controls</h3>
+            <p><strong>Controls:</strong></p>
+            <ul>
+                <li>CTRL + Click: Add node</li>
+                <li>CTRL + SHIFT + Click: Move node</li>
+                <li>SHIFT + Click: Mark two nodes for edge editing</li>
+                <li>ATL + Click: Add edge</li>
+                <li>ALT + SHIFT + Click: Move edge</li>
+                <li>Drag canvas to pan</li>
+            </ul>
+        </div>
 
-    </body>
+        <div class="section">
+            <h3>Live JSON Output</h3>
+            <textarea id="jsonOutput" readonly></textarea>
+        </div>
+    </div>
+</main>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
 </html>

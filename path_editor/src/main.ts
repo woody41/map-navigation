@@ -2,7 +2,7 @@
 
 import {Node} from "./node";
 import {Edge} from "./edge";
-import {generateUUID} from "./functions"
+import {generateUUID, resizeCanvasToDisplaySize} from "./functions"
 
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
@@ -43,9 +43,11 @@ function renderRefPointsForm() {
     refPoints.forEach((p, i) => {
         container.insertAdjacentHTML('beforeend', `
       <div>
-        <strong>${String.fromCharCode(65 + i)}:</strong>
+        <strong>${String.fromCharCode(65 + i)} canvas:</strong>
         <input type="number" id="imgX${i}" value="${p.imgX}" />
         <input type="number" id="imgY${i}" value="${p.imgY}" />
+        
+        <strong>${String.fromCharCode(65 + i)} in-game:</strong>
         <input type="number" id="mapX${i}" value="${p.mapX}" />
         <input type="number" id="mapY${i}" value="${p.mapY}" />
       </div>
@@ -82,6 +84,7 @@ export function mapToImg(mapX: number, mapY: number): { imgX: number; imgY: numb
 }
 
 function drawScene() {
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
@@ -104,8 +107,29 @@ function drawScene() {
     updateJSON();
 }
 
+function preloadDefaultImage() {
+    img = new Image();
+    img.onload = () => {
+        points = [];
+        scale = 1;
+        offsetX = 0;
+        offsetY = 0;
+        drawScene();
+    };
+    img.src = 'assets/map-classic.webp';
+}
+
+
 function updateJSON() {
     (document.getElementById('jsonOutput') as HTMLTextAreaElement).value = JSON.stringify(points, null, 2);
+}
+
+function deleteAllEdgesOfNodes() {
+    console.log("removing all edges of node");
+}
+
+function changeEdgePoints() {
+    console.log("Changing edge starting and ending points");
 }
 
 (document.getElementById('fileInput') as HTMLInputElement).addEventListener('change', e => {
@@ -139,13 +163,11 @@ canvas.addEventListener('wheel', e => {
 });
 
 canvas.addEventListener('mousedown', e => {
-    if (e.ctrlKey) return;
-
     const imgX = (e.offsetX - offsetX) / scale;
     const imgY = (e.offsetY - offsetY) / scale;
-    const { mapX, mapY } = imgToMap(imgX, imgY);
+    const {mapX, mapY} = imgToMap(imgX, imgY);
 
-    if (e.shiftKey) {
+    if (e.shiftKey && e.ctrlKey) {
         const radius = 8 / scale;
 
         for (const point of points) {
@@ -157,7 +179,7 @@ canvas.addEventListener('mousedown', e => {
                 break;
             }
         }
-    } else {
+    } else if (!e.shiftKey && !e.ctrlKey) {
         isDraggingMap = true;
         dragStartX = e.clientX;
         dragStartY = e.clientY;
@@ -177,7 +199,7 @@ canvas.addEventListener('mousemove', e => {
     } else if (isDraggingNode && selectedNode) {
         const imgX = (e.offsetX - offsetX) / scale;
         const imgY = (e.offsetY - offsetY) / scale;
-        const { mapX, mapY } = imgToMap(imgX, imgY);
+        const {mapX, mapY} = imgToMap(imgX, imgY);
         selectedNode.x = mapX;
         selectedNode.y = mapY;
         drawScene();
@@ -209,9 +231,35 @@ canvas.addEventListener('click', e => {
     drawScene();
 });
 
+canvas.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    if (!img || isDraggingMap) return;
+    if (!e.ctrlKey) return;  // only proceed if CTRL key is held
+
+    const radius = 8 / scale;
+    const imgX = (e.offsetX - offsetX) / scale;
+    const imgY = (e.offsetY - offsetY) / scale;
+    const {mapX, mapY} = imgToMap(imgX, imgY);
+
+    for (const point of points) {
+        const dx = point.x - mapX;
+        const dy = point.y - mapY;
+        if (Math.sqrt(dx * dx + dy * dy) < radius) {
+            let index = points.indexOf(point);
+            if (index > -1) {
+                points.splice(points.indexOf(point), 1);
+            }
+            break;
+        }
+    }
+    drawScene();
+});
+
 
 (document.getElementById('updateBtn') as HTMLButtonElement).addEventListener('click', updateRefPointsFromForm);
 
+resizeCanvasToDisplaySize(canvas);
+preloadDefaultImage();
 renderRefPointsForm();
 drawScene();
 
