@@ -1,4 +1,5 @@
-import { Edge } from "./edge";
+import {Edge} from "./edge";
+import {mapToImg} from "./main";
 
 // Shared Offset type
 interface Offset {
@@ -23,15 +24,15 @@ export class Node {
         this._edges.push(edge);
     }
 
-    draw(ctx: CanvasRenderingContext2D, offset: Offset): void {
-        ctx.fillStyle = '#f00';
+    draw(ctx: CanvasRenderingContext2D, offset: { imgX: number, imgY: number }, scale: number): void {
+        const {imgX, imgY} = offset;
         ctx.beginPath();
-        ctx.arc(this._x - offset.x, this._y - offset.y, 5, 0, 2 * Math.PI);
+        ctx.arc(imgX, imgY, 6 / scale, 0, Math.PI * 2);
         ctx.fill();
     }
 
     toJSON(): { id: string; x: number; y: number } {
-        return { id: this._id, x: this._x, y: this._y };
+        return {id: this._id, x: this._x, y: this._y};
     }
 
     get edges(): Edge[] {

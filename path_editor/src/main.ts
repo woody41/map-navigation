@@ -1,7 +1,8 @@
 // main.ts
 
-import { Node } from "./node";
-import { Edge } from "./edge";
+import {Node} from "./node";
+import {Edge} from "./edge";
+import {generateUUID} from "./functions"
 
 const canvas = document.getElementById('canvas') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
@@ -10,9 +11,12 @@ let img: HTMLImageElement | null = null;
 let scale = 1;
 let offsetX = 0;
 let offsetY = 0;
-let isDragging = false;
+let isDraggingMap = false;
+let isDraggingNode = false;
 let dragStartX = 0;
 let dragStartY = 0;
+let nextNumber = 0;
+let selectedNode: Node | null = null;
 
 type RefPoint = {
     imgX: number;
@@ -27,8 +31,8 @@ type MapPoint = {
 };
 
 let refPoints: RefPoint[] = [
-    { imgX: 142, imgY: 178, mapX: -2466, mapY: 2331 },
-    { imgX: 1451, imgY: 1454, mapX: 2443, mapY: -2450 }
+    {imgX: 142, imgY: 178, mapX: -2466, mapY: 2331},
+    {imgX: 1451, imgY: 1454, mapX: 2443, mapY: -2450}
 ];
 
 let points: Node[] = [];
@@ -68,7 +72,7 @@ function imgToMap(x: number, y: number): { mapX: number; mapY: number } {
     };
 }
 
-function mapToImg(mapX: number, mapY: number): { imgX: number; imgY: number } {
+export function mapToImg(mapX: number, mapY: number): { imgX: number; imgY: number } {
     const scaleX = (refPoints[1].imgX - refPoints[0].imgX) / (refPoints[1].mapX - refPoints[0].mapX);
     const scaleY = (refPoints[1].imgY - refPoints[0].imgY) / (refPoints[1].mapY - refPoints[0].mapY);
     return {
@@ -94,10 +98,7 @@ function drawScene() {
 
     ctx.fillStyle = 'red';
     points.forEach(p => {
-        const { imgX, imgY } = mapToImg(p.x, p.y);
-        ctx.beginPath();
-        ctx.arc(imgX, imgY, 6 / scale, 0, Math.PI * 2);
-        ctx.fill();
+        p.draw(ctx, mapToImg(p.x, p.y), scale);
     });
 
     updateJSON();
@@ -138,13 +139,34 @@ canvas.addEventListener('wheel', e => {
 });
 
 canvas.addEventListener('mousedown', e => {
-    isDragging = true;
-    dragStartX = e.clientX;
-    dragStartY = e.clientY;
+    if (e.ctrlKey) return;
+
+    const imgX = (e.offsetX - offsetX) / scale;
+    const imgY = (e.offsetY - offsetY) / scale;
+    const { mapX, mapY } = imgToMap(imgX, imgY);
+
+    if (e.shiftKey) {
+        const radius = 8 / scale;
+
+        for (const point of points) {
+            const dx = point.x - mapX;
+            const dy = point.y - mapY;
+            if (Math.sqrt(dx * dx + dy * dy) < radius) {
+                selectedNode = point;
+                isDraggingNode = true;
+                break;
+            }
+        }
+    } else {
+        isDraggingMap = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+    }
 });
 
+
 canvas.addEventListener('mousemove', e => {
-    if (isDragging) {
+    if (isDraggingMap) {
         const dx = e.clientX - dragStartX;
         const dy = e.clientY - dragStartY;
         offsetX += dx;
@@ -152,21 +174,41 @@ canvas.addEventListener('mousemove', e => {
         dragStartX = e.clientX;
         dragStartY = e.clientY;
         drawScene();
+    } else if (isDraggingNode && selectedNode) {
+        const imgX = (e.offsetX - offsetX) / scale;
+        const imgY = (e.offsetY - offsetY) / scale;
+        const { mapX, mapY } = imgToMap(imgX, imgY);
+        selectedNode.x = mapX;
+        selectedNode.y = mapY;
+        drawScene();
     }
 });
 
-canvas.addEventListener('mouseup', () => isDragging = false);
-canvas.addEventListener('mouseleave', () => isDragging = false);
+
+canvas.addEventListener('mouseup', () => {
+    isDraggingMap = false;
+    isDraggingNode = false;
+    selectedNode = null;
+});
+
+canvas.addEventListener('mouseleave', () => {
+    isDraggingMap = false;
+    isDraggingNode = false;
+    selectedNode = null;
+});
 
 canvas.addEventListener('click', e => {
-    if (!img || isDragging) return;
+    if (!img || isDraggingMap) return;
+    if (!e.ctrlKey) return;  // only proceed if CTRL key is held
+
     const imgX = (e.offsetX - offsetX) / scale;
     const imgY = (e.offsetY - offsetY) / scale;
-    const { mapX, mapY } = imgToMap(imgX, imgY);
-    const newPoint = new Node("test", parseFloat(mapX.toFixed(2)), parseFloat(mapY.toFixed(2)));
+    const {mapX, mapY} = imgToMap(imgX, imgY);
+    const newPoint = new Node(generateUUID(), parseFloat(mapX.toFixed(2)), parseFloat(mapY.toFixed(2)));
     points.push(newPoint);
     drawScene();
 });
+
 
 (document.getElementById('updateBtn') as HTMLButtonElement).addEventListener('click', updateRefPointsFromForm);
 
