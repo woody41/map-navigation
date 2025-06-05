@@ -1,6 +1,6 @@
-# 🧭 SAMP GPS Curve Editor
+# 🧭 GPS Map navigation for games with editor and SA-MP integration
 
-An interactive web-based navigation editor for **San Andreas Multiplayer (SA-MP)**. Designed for precise path editing with support for map overlays, draggable nodes, Bezier curves, and live JSON output — ready to be processed by a Java backend or exported to SA-MP's Pawn scripting language.
+An interactive web-based navigation editor for **San Andreas Multiplayer (SA-MP)**. Designed for precise path editing with support for map overlays, draggable nodes, Bezier curves, and live JSON output — ready to be processed by a Java backend or exported to SA-MP's Pawn scripting language. Including REST API Java server for data processing and pathfinding and PAWN filterscript for SA-MP server integration.
 
 ---
 
