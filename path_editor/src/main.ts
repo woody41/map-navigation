@@ -15,8 +15,9 @@ let isDraggingMap = false;
 let isDraggingNode = false;
 let dragStartX = 0;
 let dragStartY = 0;
-let nextNumber = 0;
 let selectedNode: Node | null = null;
+let activeNode1: Node | null = null;
+let activeNode2: Node | null = null;
 
 type RefPoint = {
     imgX: number;
@@ -99,8 +100,12 @@ function drawScene() {
         ctx.fillText(String.fromCharCode(65 + i), p.imgX, p.imgY - 12 / scale);
     });
 
-    ctx.fillStyle = 'red';
     points.forEach(p => {
+        if (p == activeNode1 || p == activeNode2) {
+            ctx.fillStyle = 'red';
+        } else {
+            ctx.fillStyle = 'blue';
+        }
         p.draw(ctx, mapToImg(p.x, p.y), scale);
     });
 
@@ -167,16 +172,31 @@ canvas.addEventListener('mousedown', e => {
     const imgY = (e.offsetY - offsetY) / scale;
     const {mapX, mapY} = imgToMap(imgX, imgY);
 
-    if (e.shiftKey && e.ctrlKey) {
+    if (e.shiftKey) {
         const radius = 8 / scale;
 
         for (const point of points) {
             const dx = point.x - mapX;
             const dy = point.y - mapY;
+
             if (Math.sqrt(dx * dx + dy * dy) < radius) {
-                selectedNode = point;
-                isDraggingNode = true;
-                break;
+                if (e.ctrlKey) {
+                    selectedNode = point;
+                    isDraggingNode = true;
+                    break;
+                } else {
+                    if (activeNode1 == null) {
+                        activeNode1 = point;
+                    }else if (activeNode1 == point || activeNode2 == point) {
+                        activeNode1 = null;
+                        activeNode2 = null;
+                    } else if (activeNode1 != point) {
+                        activeNode2 = activeNode1;
+                        activeNode1 = point;
+                    }
+                    drawScene();
+                    break;
+                }
             }
         }
     } else if (!e.shiftKey && !e.ctrlKey) {
@@ -221,7 +241,7 @@ canvas.addEventListener('mouseleave', () => {
 
 canvas.addEventListener('click', e => {
     if (!img || isDraggingMap) return;
-    if (!e.ctrlKey) return;  // only proceed if CTRL key is held
+    if (!e.ctrlKey || e.shiftKey) return;
 
     const imgX = (e.offsetX - offsetX) / scale;
     const imgY = (e.offsetY - offsetY) / scale;
